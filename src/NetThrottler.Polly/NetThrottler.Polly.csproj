@@ -1,0 +1,27 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net8.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <GenerateDocumentationFile>true</GenerateDocumentationFile>
+    <LangVersion>12.0</LangVersion>
+    <Company>NetThrottler</Company>
+    <Authors>NetThrottler Team</Authors>
+    <PackageId>NetThrottler.Polly</PackageId>
+    <Version>1.0.0</Version>
+    <Description>Polly integration for NetThrottler resilience patterns.</Description>
+    <PackageTags>rate-limiting;throttling;polly;resilience;circuit-breaker</PackageTags>
+    <RepositoryUrl>https://github.com/netthrottler/NetThrottler</RepositoryUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Polly" Version="8.2.0" />
+    <PackageReference Include="Polly.Extensions.Http" Version="3.0.0" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" Version="9.0.0" />
+    <PackageReference Include="Microsoft.Extensions.Options" Version="9.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\NetThrottler.Core\NetThrottler.Core.csproj" />
+  </ItemGroup>
+</Project>

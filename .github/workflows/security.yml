@@ -1,0 +1,80 @@
+name: 🔒 Security Scan
+
+on:
+  push:
+    branches: [ main, develop ]
+  pull_request:
+    branches: [ main, develop ]
+  schedule:
+    - cron: '0 2 * * 1' # Weekly on Monday at 2 AM
+  workflow_dispatch:
+
+jobs:
+  security-scan:
+    name: 🔒 Security Scan
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: '8.0.x'
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore
+
+    - name: 🔒 Run Snyk security scan
+      uses: snyk/actions/dotnet@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+    - name: 🛡️ Run CodeQL Analysis
+      uses: github/codeql-action/init@v2
+      with:
+        languages: csharp
+
+    - name: 🔍 Perform CodeQL Analysis
+      uses: github/codeql-action/analyze@v2
+
+    - name: 🔐 Run Trivy vulnerability scanner
+      uses: aquasecurity/trivy-action@master
+      with:
+        scan-type: 'fs'
+        scan-ref: '.'
+        format: 'sarif'
+        output: 'trivy-results.sarif'
+
+    - name: 📊 Upload Trivy scan results
+      uses: github/codeql-action/upload-sarif@v2
+      if: always()
+      with:
+        sarif_file: 'trivy-results.sarif'
+
+    - name: 🔍 Run Dependency Check
+      run: |
+        dotnet list package --vulnerable --include-transitive
+        
+    - name: 📋 Generate security report
+      run: |
+        echo "# 🔒 Security Scan Report" > security-report.md
+        echo "Date: $(date)" >> security-report.md
+        echo "Branch: ${{ github.ref_name }}" >> security-report.md
+        echo "Commit: ${{ github.sha }}" >> security-report.md
+        echo "" >> security-report.md
+        echo "## Scan Results" >> security-report.md
+        echo "- ✅ CodeQL Analysis: Completed" >> security-report.md
+        echo "- ✅ Trivy Scan: Completed" >> security-report.md
+        echo "- ✅ Dependency Check: Completed" >> security-report.md
+
+    - name: 📤 Upload security report
+      uses: actions/upload-artifact@v3
+      with:
+        name: security-report
+        path: security-report.md
