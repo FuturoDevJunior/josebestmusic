@@ -2,6 +2,8 @@ using Microsoft.Extensions.Logging;
 using NetThrottler.Core.Interfaces;
 using Polly;
 using Polly.Extensions.Http;
+using Polly.CircuitBreaker;
+using Polly.Retry;
 
 namespace NetThrottler.Polly.Strategies;
 
@@ -38,7 +40,7 @@ public class ThrottlingResilienceStrategy
     {
         var duration = circuitBreakerDuration ?? TimeSpan.FromSeconds(30);
 
-        return Policy
+        var retryPolicy = Policy
             .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
             .WaitAndRetryAsync(
                 retryCount,
@@ -47,22 +49,24 @@ public class ThrottlingResilienceStrategy
                 {
                     _logger.LogWarning("Retry {RetryCount} after {Delay}ms due to: {Reason}",
                         retryCount, timespan.TotalMilliseconds, outcome.Result?.ReasonPhrase);
-                })
-            .WrapAsync(
-                Policy
-                    .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-                    .CircuitBreakerAsync(
-                        circuitBreakerThreshold,
-                        duration,
-                        onBreak: (result, duration) =>
-                        {
-                            _logger.LogWarning("Circuit breaker opened for {Duration}ms due to: {Reason}",
-                                duration.TotalMilliseconds, result.Result?.ReasonPhrase);
-                        },
-                        onReset: () =>
-                        {
-                            _logger.LogInformation("Circuit breaker reset");
-                        }));
+                });
+
+        var circuitBreakerPolicy = Policy
+            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
+            .CircuitBreakerAsync(
+                circuitBreakerThreshold,
+                duration,
+                onBreak: (result, duration) =>
+                {
+                    _logger.LogWarning("Circuit breaker opened for {Duration}ms due to: {Reason}",
+                        duration.TotalMilliseconds, result.Result?.ReasonPhrase);
+                },
+                onReset: () =>
+                {
+                    _logger.LogInformation("Circuit breaker reset");
+                });
+
+        return retryPolicy.WrapAsync(circuitBreakerPolicy);
     }
 
     /// <summary>
