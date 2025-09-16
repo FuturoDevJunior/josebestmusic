@@ -5,6 +5,7 @@ using NetThrottler.Core.Interfaces;
 using NetThrottler.Core.Storage;
 using NetThrottler.HttpClient.Handlers;
 using NetThrottler.HttpClient.Options;
+using System.Net.Http;
 
 namespace NetThrottler.HttpClient.Extensions;
 

@@ -42,8 +42,11 @@ public class RedisThrottleStorageTests : IAsyncLifetime
 
     public async Task DisposeAsync()
     {
-        _storage?.Dispose();
-        _connection?.Dispose();
+        await Task.Run(() =>
+        {
+            _storage?.Dispose();
+            _connection?.Dispose();
+        });
     }
 
     [Fact]

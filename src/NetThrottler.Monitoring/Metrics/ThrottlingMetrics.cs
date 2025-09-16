@@ -213,13 +213,14 @@ public class MetricsThrottleStorage : IThrottleStorage
     /// Checks if a key exists with metrics collection.
     /// </summary>
     /// <param name="key">The key to check.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>True if the key exists, false otherwise.</returns>
-    public async Task<bool> ExistsAsync(string key)
+    public async Task<bool> ExistsAsync(string key, CancellationToken cancellationToken = default)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            return await _innerStorage.ExistsAsync(key);
+            return await _innerStorage.ExistsAsync(key, cancellationToken);
         }
         finally
         {
@@ -234,13 +235,14 @@ public class MetricsThrottleStorage : IThrottleStorage
     /// <param name="key">The key to increment.</param>
     /// <param name="incrementBy">The amount to increment by.</param>
     /// <param name="ttl">The time-to-live for the key.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The new value after incrementing.</returns>
-    public async Task<long> IncrementAsync(string key, long incrementBy = 1, TimeSpan? ttl = null)
+    public async Task<long> IncrementAsync(string key, long incrementBy = 1, TimeSpan? ttl = null, CancellationToken cancellationToken = default)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            return await _innerStorage.IncrementAsync(key, incrementBy, ttl);
+            return await _innerStorage.IncrementAsync(key, incrementBy, ttl, cancellationToken);
         }
         finally
         {
@@ -254,19 +256,40 @@ public class MetricsThrottleStorage : IThrottleStorage
     /// </summary>
     /// <param name="key">The key to decrement.</param>
     /// <param name="decrementBy">The amount to decrement by.</param>
-    /// <param name="ttl">The time-to-live for the key.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
     /// <returns>The new value after decrementing.</returns>
-    public async Task<long> DecrementAsync(string key, long decrementBy = 1, TimeSpan? ttl = null)
+    public async Task<long> DecrementAsync(string key, long decrementBy = 1, CancellationToken cancellationToken = default)
     {
         var stopwatch = System.Diagnostics.Stopwatch.StartNew();
         try
         {
-            return await _innerStorage.DecrementAsync(key, decrementBy, ttl);
+            return await _innerStorage.DecrementAsync(key, decrementBy, cancellationToken);
         }
         finally
         {
             stopwatch.Stop();
             _metrics.RecordStorageOperation("decrement", _innerStorage.GetType().Name, stopwatch.Elapsed);
+        }
+    }
+
+    /// <summary>
+    /// Sets expiration for a key with metrics collection.
+    /// </summary>
+    /// <param name="key">The key to set expiration for.</param>
+    /// <param name="ttl">The time-to-live for the key.</param>
+    /// <param name="cancellationToken">The cancellation token.</param>
+    /// <returns>A task representing the asynchronous operation.</returns>
+    public async Task ExpireAsync(string key, TimeSpan ttl, CancellationToken cancellationToken = default)
+    {
+        var stopwatch = System.Diagnostics.Stopwatch.StartNew();
+        try
+        {
+            await _innerStorage.ExpireAsync(key, ttl, cancellationToken);
+        }
+        finally
+        {
+            stopwatch.Stop();
+            _metrics.RecordStorageOperation("expire", _innerStorage.GetType().Name, stopwatch.Elapsed);
         }
     }
 }
