@@ -1,3 +1,5 @@
+using System;
+using System.Linq;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Http;
@@ -6,6 +8,7 @@ using NetThrottler.Core.Interfaces;
 using NetThrottler.Core.Storage;
 using NetThrottler.HttpClient.Handlers;
 using NetThrottler.HttpClient.Options;
+using HttpClientClass = System.Net.Http.HttpClient;
 
 namespace NetThrottler.HttpClient.Extensions;
 
@@ -77,7 +80,7 @@ public static class ServiceCollectionExtensions
     /// <param name="name">The name of the HttpClient.</param>
     /// <param name="configureClient">An action to configure the HttpClient.</param>
     /// <returns>The <see cref="IHttpClientBuilder"/> for chaining.</returns>
-    public static IHttpClientBuilder AddThrottledHttpClient(this IServiceCollection services, string name, Action<HttpClient>? configureClient = null)
+    public static IHttpClientBuilder AddThrottledHttpClient(this IServiceCollection services, string name, Action<HttpClientClass>? configureClient = null)
     {
         if (services == null)
             throw new ArgumentNullException(nameof(services));
@@ -98,7 +101,7 @@ public static class ServiceCollectionExtensions
     /// <param name="configureClient">An action to configure the HttpClient.</param>
     /// <param name="configureHandler">An action to configure the throttling handler.</param>
     /// <returns>The <see cref="IHttpClientBuilder"/> for chaining.</returns>
-    public static IHttpClientBuilder AddThrottledHttpClient(this IServiceCollection services, string name, Action<HttpClient>? configureClient, Action<ThrottlingDelegatingHandler>? configureHandler)
+    public static IHttpClientBuilder AddThrottledHttpClient(this IServiceCollection services, string name, Action<HttpClientClass>? configureClient, Action<ThrottlingDelegatingHandler>? configureHandler)
     {
         if (services == null)
             throw new ArgumentNullException(nameof(services));
@@ -124,7 +127,7 @@ public static class ServiceCollectionExtensions
     /// <param name="services">The <see cref="IServiceCollection"/> to add services to.</param>
     /// <param name="configureClient">An action to configure the HttpClient.</param>
     /// <returns>The <see cref="IHttpClientBuilder"/> for chaining.</returns>
-    public static IHttpClientBuilder AddThrottledHttpClient<TClient, TImplementation>(this IServiceCollection services, Action<HttpClient>? configureClient = null)
+    public static IHttpClientBuilder AddThrottledHttpClient<TClient, TImplementation>(this IServiceCollection services, Action<HttpClientClass>? configureClient = null)
         where TClient : class
         where TImplementation : class, TClient
     {
