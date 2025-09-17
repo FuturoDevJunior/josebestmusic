@@ -1,9 +1,9 @@
 using Microsoft.Extensions.Logging;
 using NetThrottler.Core.Interfaces;
 using Polly;
-using Polly.Extensions.Http;
 using Polly.CircuitBreaker;
 using Polly.Retry;
+using Polly.Timeout;
 
 namespace NetThrottler.Polly.Strategies;
 
@@ -33,40 +33,51 @@ public class ThrottlingResilienceStrategy
     /// <param name="circuitBreakerThreshold">The circuit breaker failure threshold.</param>
     /// <param name="circuitBreakerDuration">The circuit breaker duration.</param>
     /// <returns>A resilience strategy builder.</returns>
-    public IAsyncPolicy<HttpResponseMessage> CreateComprehensiveStrategy(
+    public ResiliencePipeline<HttpResponseMessage> CreateComprehensiveStrategy(
         int retryCount = 3,
         int circuitBreakerThreshold = 5,
         TimeSpan? circuitBreakerDuration = null)
     {
         var duration = circuitBreakerDuration ?? TimeSpan.FromSeconds(30);
 
-        var retryPolicy = Policy
-            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-            .WaitAndRetryAsync(
-                retryCount,
-                retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                onRetry: (outcome, timespan, retryCount, context) =>
+        return new ResiliencePipelineBuilder<HttpResponseMessage>()
+            .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+            {
+                MaxRetryAttempts = retryCount,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                BaseDelay = TimeSpan.FromSeconds(1),
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .HandleResult(r => !r.IsSuccessStatusCode),
+                OnRetry = args =>
                 {
                     _logger.LogWarning("Retry {RetryCount} after {Delay}ms due to: {Reason}",
-                        retryCount, timespan.TotalMilliseconds, outcome.Result?.ReasonPhrase);
-                });
-
-        var circuitBreakerPolicy = Policy
-            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-            .CircuitBreakerAsync(
-                circuitBreakerThreshold,
-                duration,
-                onBreak: (result, duration) =>
+                        args.AttemptNumber, args.RetryDelay.TotalMilliseconds, "HTTP Error");
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions<HttpResponseMessage>
+            {
+                FailureRatio = 0.5,
+                SamplingDuration = TimeSpan.FromSeconds(10),
+                MinimumThroughput = circuitBreakerThreshold,
+                BreakDuration = duration,
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .HandleResult(r => !r.IsSuccessStatusCode),
+                OnOpened = args =>
                 {
-                    _logger.LogWarning("Circuit breaker opened for {Duration}ms due to: {Reason}",
-                        duration.TotalMilliseconds, result.Result?.ReasonPhrase);
+                    _logger.LogWarning("Circuit breaker opened for {Duration}ms", duration.TotalMilliseconds);
+                    return ValueTask.CompletedTask;
                 },
-                onReset: () =>
+                OnClosed = args =>
                 {
                     _logger.LogInformation("Circuit breaker reset");
-                });
-
-        return retryPolicy.WrapAsync(circuitBreakerPolicy);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     /// <summary>
@@ -74,18 +85,26 @@ public class ThrottlingResilienceStrategy
     /// </summary>
     /// <param name="retryCount">The number of retry attempts.</param>
     /// <returns>A retry policy.</returns>
-    public IAsyncPolicy<HttpResponseMessage> CreateRetryStrategy(int retryCount = 3)
+    public ResiliencePipeline<HttpResponseMessage> CreateRetryStrategy(int retryCount = 3)
     {
-        return Policy
-            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-            .WaitAndRetryAsync(
-                retryCount,
-                retryAttempt => TimeSpan.FromSeconds(Math.Pow(2, retryAttempt)),
-                onRetry: (outcome, timespan, retryCount, context) =>
+        return new ResiliencePipelineBuilder<HttpResponseMessage>()
+            .AddRetry(new RetryStrategyOptions<HttpResponseMessage>
+            {
+                MaxRetryAttempts = retryCount,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                BaseDelay = TimeSpan.FromSeconds(1),
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .HandleResult(r => !r.IsSuccessStatusCode),
+                OnRetry = args =>
                 {
                     _logger.LogWarning("Retry {RetryCount} after {Delay}ms due to: {Reason}",
-                        retryCount, timespan.TotalMilliseconds, outcome.Result?.ReasonPhrase);
-                });
+                        args.AttemptNumber, args.RetryDelay.TotalMilliseconds, "HTTP Error");
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     /// <summary>
@@ -94,26 +113,34 @@ public class ThrottlingResilienceStrategy
     /// <param name="threshold">The failure threshold.</param>
     /// <param name="duration">The circuit breaker duration.</param>
     /// <returns>A circuit breaker policy.</returns>
-    public IAsyncPolicy<HttpResponseMessage> CreateCircuitBreakerStrategy(
+    public ResiliencePipeline<HttpResponseMessage> CreateCircuitBreakerStrategy(
         int threshold = 5,
         TimeSpan? duration = null)
     {
         var circuitDuration = duration ?? TimeSpan.FromSeconds(30);
 
-        return Policy
-            .HandleResult<HttpResponseMessage>(r => !r.IsSuccessStatusCode)
-            .CircuitBreakerAsync(
-                threshold,
-                circuitDuration,
-                onBreak: (result, duration) =>
+        return new ResiliencePipelineBuilder<HttpResponseMessage>()
+            .AddCircuitBreaker(new CircuitBreakerStrategyOptions<HttpResponseMessage>
+            {
+                FailureRatio = 0.5,
+                SamplingDuration = TimeSpan.FromSeconds(10),
+                MinimumThroughput = threshold,
+                BreakDuration = circuitDuration,
+                ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
+                    .Handle<HttpRequestException>()
+                    .HandleResult(r => !r.IsSuccessStatusCode),
+                OnOpened = args =>
                 {
-                    _logger.LogWarning("Circuit breaker opened for {Duration}ms due to: {Reason}",
-                        duration.TotalMilliseconds, result.Result?.ReasonPhrase);
+                    _logger.LogWarning("Circuit breaker opened for {Duration}ms", circuitDuration.TotalMilliseconds);
+                    return ValueTask.CompletedTask;
                 },
-                onReset: () =>
+                OnClosed = args =>
                 {
                     _logger.LogInformation("Circuit breaker reset");
-                });
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     /// <summary>
@@ -121,8 +148,18 @@ public class ThrottlingResilienceStrategy
     /// </summary>
     /// <param name="timeout">The timeout duration.</param>
     /// <returns>A timeout policy.</returns>
-    public IAsyncPolicy<HttpResponseMessage> CreateTimeoutStrategy(TimeSpan timeout)
+    public ResiliencePipeline<HttpResponseMessage> CreateTimeoutStrategy(TimeSpan timeout)
     {
-        return Policy.TimeoutAsync<HttpResponseMessage>(timeout);
+        return new ResiliencePipelineBuilder<HttpResponseMessage>()
+            .AddTimeout(new TimeoutStrategyOptions
+            {
+                Timeout = timeout,
+                OnTimeout = args =>
+                {
+                    _logger.LogWarning("Request timed out after {Timeout}ms", timeout.TotalMilliseconds);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 }

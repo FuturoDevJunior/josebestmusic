@@ -8,7 +8,7 @@ namespace NetThrottler.Core.Policies;
 /// Implements the Fixed Window rate limiting algorithm.
 /// Requests are counted within fixed time windows, with counters resetting at window boundaries.
 /// </summary>
-public sealed class FixedWindowPolicy : IRateLimiter, IDisposable
+public sealed class FixedWindowPolicy : IPolicy, IRateLimiter, IDisposable
 {
     private readonly string _name;
     private readonly int _limit;
@@ -66,6 +66,26 @@ public sealed class FixedWindowPolicy : IRateLimiter, IDisposable
     /// Gets the window size.
     /// </summary>
     public TimeSpan WindowSize => _windowSize;
+
+    /// <summary>
+    /// Gets the algorithm type.
+    /// </summary>
+    public string Algorithm => "FixedWindow";
+
+    /// <summary>
+    /// Gets the maximum number of requests allowed per time window.
+    /// </summary>
+    public int MaxRequests => _limit;
+
+    /// <summary>
+    /// Gets the time window duration.
+    /// </summary>
+    public TimeSpan Window => _windowSize;
+
+    /// <summary>
+    /// Gets additional configuration parameters.
+    /// </summary>
+    public IReadOnlyDictionary<string, object> Parameters { get; } = new Dictionary<string, object>();
 
     /// <summary>
     /// Attempts to acquire the specified number of permits within the current window.

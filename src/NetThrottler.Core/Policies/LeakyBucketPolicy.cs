@@ -8,7 +8,7 @@ namespace NetThrottler.Core.Policies;
 /// Implements the Leaky Bucket rate limiting algorithm.
 /// Requests are processed at a constant rate, with excess requests being dropped or queued.
 /// </summary>
-public sealed class LeakyBucketPolicy : IRateLimiter, IDisposable
+public sealed class LeakyBucketPolicy : IPolicy, IRateLimiter, IDisposable
 {
     private readonly string _name;
     private readonly int _capacity;
@@ -71,6 +71,26 @@ public sealed class LeakyBucketPolicy : IRateLimiter, IDisposable
     /// Gets the leak rate per second.
     /// </summary>
     public double LeakRatePerSecond => _leakRatePerSecond;
+
+    /// <summary>
+    /// Gets the algorithm type.
+    /// </summary>
+    public string Algorithm => "LeakyBucket";
+
+    /// <summary>
+    /// Gets the maximum number of requests allowed per time window.
+    /// </summary>
+    public int MaxRequests => _capacity;
+
+    /// <summary>
+    /// Gets the time window duration.
+    /// </summary>
+    public TimeSpan Window => TimeSpan.FromSeconds(_capacity / Math.Max(_leakRatePerSecond, 1));
+
+    /// <summary>
+    /// Gets additional configuration parameters.
+    /// </summary>
+    public IReadOnlyDictionary<string, object> Parameters { get; } = new Dictionary<string, object>();
 
     /// <summary>
     /// Attempts to acquire the specified number of permits from the leaky bucket.

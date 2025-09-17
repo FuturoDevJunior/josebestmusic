@@ -179,7 +179,8 @@ public static class ServiceCollectionExtensions
             "memory" => new MemoryThrottleStorage(
                 provider.GetService<Microsoft.Extensions.Caching.Memory.IMemoryCache>(),
                 provider.GetService<ILogger<MemoryThrottleStorage>>()),
-            "redis" => throw new NotImplementedException("Redis storage not yet implemented"),
+            "redis" => provider.GetService<IThrottleStorage>() 
+                ?? throw new InvalidOperationException("Redis storage not configured. Please call AddRedisThrottleStorage() first."),
             "sql" => throw new NotImplementedException("SQL storage not yet implemented"),
             _ => throw new ArgumentException($"Unsupported storage type: {config.Type}")
         };

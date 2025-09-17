@@ -204,6 +204,7 @@ public class TokenBucketPolicyTests : IDisposable
 
     public void Dispose()
     {
+        _policy.Dispose();
         _storage.Dispose();
     }
 }

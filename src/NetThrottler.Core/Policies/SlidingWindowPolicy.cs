@@ -8,7 +8,7 @@ namespace NetThrottler.Core.Policies;
 /// Implements the Sliding Window rate limiting algorithm.
 /// Requests are counted within a sliding time window, providing more accurate rate limiting.
 /// </summary>
-public sealed class SlidingWindowPolicy : IRateLimiter, IDisposable
+public sealed class SlidingWindowPolicy : IPolicy, IRateLimiter, IDisposable
 {
     private readonly string _name;
     private readonly int _limit;
@@ -66,6 +66,26 @@ public sealed class SlidingWindowPolicy : IRateLimiter, IDisposable
     /// Gets the window size.
     /// </summary>
     public TimeSpan WindowSize => _windowSize;
+
+    /// <summary>
+    /// Gets the algorithm type.
+    /// </summary>
+    public string Algorithm => "SlidingWindow";
+
+    /// <summary>
+    /// Gets the maximum number of requests allowed per time window.
+    /// </summary>
+    public int MaxRequests => _limit;
+
+    /// <summary>
+    /// Gets the time window duration.
+    /// </summary>
+    public TimeSpan Window => _windowSize;
+
+    /// <summary>
+    /// Gets additional configuration parameters.
+    /// </summary>
+    public IReadOnlyDictionary<string, object> Parameters { get; } = new Dictionary<string, object>();
 
     /// <summary>
     /// Attempts to acquire the specified number of permits within the sliding window.
@@ -185,7 +205,7 @@ public sealed class SlidingWindowPolicy : IRateLimiter, IDisposable
         state.Requests.Add(new RequestRecord { Timestamp = timestamp, Count = count });
 
         // Clean up old requests (older than 2 * window size to be safe)
-        var cutoffTime = timestamp.Subtract(_windowSize.Multiply(2));
+        var cutoffTime = timestamp.Subtract(TimeSpan.FromTicks(_windowSize.Ticks * 2));
         state.Requests = state.Requests.Where(r => r.Timestamp > cutoffTime).ToList();
 
         // Update the state
@@ -194,7 +214,7 @@ public sealed class SlidingWindowPolicy : IRateLimiter, IDisposable
         state.CurrentCount = state.Requests.Sum(r => r.Count);
 
         var updatedStateJson = System.Text.Json.JsonSerializer.Serialize(state);
-        await _storage.SetAsync(storageKey, updatedStateJson, _windowSize.Multiply(2), cancellationToken);
+        await _storage.SetAsync(storageKey, updatedStateJson, TimeSpan.FromTicks(_windowSize.Ticks * 2), cancellationToken);
     }
 
     private string GetStorageKey(string key) => $"slidingwindow:{_name}:{key}";

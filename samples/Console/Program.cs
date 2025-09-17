@@ -52,6 +52,7 @@ Console.WriteLine("\nDemo completed. Press any key to exit...");
 Console.ReadKey();
 
 // Cleanup
+policy.Dispose();
 storage.Dispose();
 memoryCache.Dispose();
 loggerFactory.Dispose();

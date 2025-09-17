@@ -45,10 +45,25 @@ public sealed class PolicyFactory : IPolicyFactory
 
         return config.Algorithm.ToLowerInvariant() switch
         {
-            "tokenbucket" => new TokenBucketPolicy(config, _storage, logger as ILogger<TokenBucketPolicy>),
-            "leakybucket" => throw new NotImplementedException("LeakyBucket policy not yet implemented"),
-            "fixedwindow" => throw new NotImplementedException("FixedWindow policy not yet implemented"),
-            "slidingwindow" => throw new NotImplementedException("SlidingWindow policy not yet implemented"),
+            "tokenbucket" => new TokenBucketPolicy(config, _storage, logger as ILogger<TokenBucketPolicy> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<TokenBucketPolicy>.Instance),
+            "leakybucket" => new LeakyBucketPolicy(
+                config.Name, 
+                config.MaxRequests, 
+                GetLeakRateFromConfig(config), 
+                _storage, 
+                logger as ILogger<LeakyBucketPolicy> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<LeakyBucketPolicy>.Instance),
+            "fixedwindow" => new FixedWindowPolicy(
+                config.Name, 
+                config.MaxRequests, 
+                config.Window, 
+                _storage, 
+                logger as ILogger<FixedWindowPolicy> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<FixedWindowPolicy>.Instance),
+            "slidingwindow" => new SlidingWindowPolicy(
+                config.Name, 
+                config.MaxRequests, 
+                config.Window, 
+                _storage, 
+                logger as ILogger<SlidingWindowPolicy> ?? Microsoft.Extensions.Logging.Abstractions.NullLogger<SlidingWindowPolicy>.Instance),
             _ => throw new ArgumentException($"Unsupported algorithm: {config.Algorithm}", nameof(config))
         };
     }
@@ -103,6 +118,16 @@ public sealed class PolicyFactory : IPolicyFactory
         {
             throw new ArgumentException($"Invalid value for configuration key '{key}': {value}", ex);
         }
+    }
+
+    private static double GetLeakRateFromConfig(PolicyConfiguration config)
+    {
+        if (config.Parameters?.TryGetValue("LeakRatePerSecond", out var rateObj) == true)
+        {
+            return Convert.ToDouble(rateObj);
+        }
+        // Calculate leak rate based on window and max requests
+        return config.MaxRequests / config.Window.TotalSeconds;
     }
 
     private static bool IsStandardConfigKey(string key)
