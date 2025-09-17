@@ -73,8 +73,7 @@ public class TokenBucketBenchmark
     [GlobalCleanup]
     public void Cleanup()
     {
-        // Cleanup resources if needed
-        _policy = null;
+        _policy.Dispose();
     }
 }
 
@@ -169,8 +168,7 @@ public class ConcurrencyBenchmark
     [GlobalCleanup]
     public void Cleanup()
     {
-        // Cleanup resources if needed
-        _policy = null;
+        _policy.Dispose();
     }
 }
 

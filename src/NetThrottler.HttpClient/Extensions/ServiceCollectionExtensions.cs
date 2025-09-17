@@ -1,11 +1,11 @@
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Http;
 using Microsoft.Extensions.Options;
 using NetThrottler.Core.Interfaces;
 using NetThrottler.Core.Storage;
 using NetThrottler.HttpClient.Handlers;
 using NetThrottler.HttpClient.Options;
-using System.Net.Http;
 
 namespace NetThrottler.HttpClient.Extensions;
 

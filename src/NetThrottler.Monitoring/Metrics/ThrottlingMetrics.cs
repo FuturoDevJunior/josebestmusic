@@ -9,22 +9,22 @@ namespace NetThrottler.Monitoring.Metrics;
 /// </summary>
 public class ThrottlingMetrics
 {
-    private static readonly Counter RequestCounter = Metrics
+    private static readonly Counter RequestCounter = Prometheus.Metrics
         .CreateCounter("netthrottler_requests_total", "Total number of throttling requests", new[] { "policy", "key", "result" });
 
-    private static readonly Histogram RequestDuration = Metrics
+    private static readonly Histogram RequestDuration = Prometheus.Metrics
         .CreateHistogram("netthrottler_request_duration_seconds", "Duration of throttling requests", new[] { "policy", "key" });
 
-    private static readonly Gauge CurrentRequests = Metrics
+    private static readonly Gauge CurrentRequests = Prometheus.Metrics
         .CreateGauge("netthrottler_current_requests", "Current number of active requests", new[] { "policy", "key" });
 
-    private static readonly Counter RateLimitedRequests = Metrics
+    private static readonly Counter RateLimitedRequests = Prometheus.Metrics
         .CreateCounter("netthrottler_rate_limited_requests_total", "Total number of rate limited requests", new[] { "policy", "key" });
 
-    private static readonly Gauge StorageOperations = Metrics
+    private static readonly Gauge StorageOperations = Prometheus.Metrics
         .CreateGauge("netthrottler_storage_operations_total", "Total number of storage operations", new[] { "operation", "storage_type" });
 
-    private static readonly Histogram StorageOperationDuration = Metrics
+    private static readonly Histogram StorageOperationDuration = Prometheus.Metrics
         .CreateHistogram("netthrottler_storage_operation_duration_seconds", "Duration of storage operations", new[] { "operation", "storage_type" });
 
     private readonly ILogger<ThrottlingMetrics> _logger;

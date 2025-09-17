@@ -11,7 +11,7 @@ namespace NetThrottler.Core.Policies;
 /// Allows bursts up to the bucket capacity and refills at a steady rate.
 /// Thread-safe with per-key locking for optimal performance.
 /// </summary>
-public sealed class TokenBucketPolicy : IPolicy, IRateLimiter
+public sealed class TokenBucketPolicy : IPolicy, IRateLimiter, IDisposable
 {
     private readonly IThrottleStorage _storage;
     private readonly ILogger<TokenBucketPolicy>? _logger;
@@ -300,5 +300,17 @@ public sealed class TokenBucketPolicy : IPolicy, IRateLimiter
     {
         public string Tokens { get; set; } = string.Empty;
         public string LastRefill { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Releases all resources used by the TokenBucketPolicy.
+    /// </summary>
+    public void Dispose()
+    {
+        foreach (var kvp in _locks)
+        {
+            kvp.Value.Dispose();
+        }
+        _locks.Clear();
     }
 }
