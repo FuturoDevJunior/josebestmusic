@@ -313,4 +313,16 @@ public sealed class TokenBucketPolicy : IPolicy, IRateLimiter, IDisposable
         public string Tokens { get; set; } = string.Empty;
         public string LastRefill { get; set; } = string.Empty;
     }
+
+    /// <summary>
+    /// Releases all resources used by the TokenBucketPolicy.
+    /// </summary>
+    public void Dispose()
+    {
+        foreach (var kvp in _locks)
+        {
+            kvp.Value.Dispose();
+        }
+        _locks.Clear();
+    }
 }
