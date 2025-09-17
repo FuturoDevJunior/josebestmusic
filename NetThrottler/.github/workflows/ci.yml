@@ -1,0 +1,220 @@
+name: 🚀 CI/CD Pipeline
+
+on:
+  push:
+    branches: [ main, develop, 'feature/*', 'hotfix/*' ]
+    tags: [ 'v*' ]
+  pull_request:
+    branches: [ main, develop ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'staging'
+        type: choice
+        options:
+        - staging
+        - production
+
+env:
+  DOTNET_VERSION: '8.0.x'
+  SOLUTION_FILE: 'NetThrottler.sln'
+  ARTIFACTS_DIR: './artifacts'
+  TEST_RESULTS_DIR: './test-results'
+
+jobs:
+  # 🔍 Code Quality & Security
+  quality-check:
+    name: 🔍 Code Quality & Security
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+    - name: 🔨 Build solution
+      run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
+
+    - name: 🔒 Security scan with Snyk
+      uses: snyk/actions/dotnet@master
+      continue-on-error: true
+      env:
+        SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
+
+  # 🧪 Test Suite
+  test:
+    name: 🧪 Test Suite
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      matrix:
+        dotnet-version: ['8.0.x']
+        os: [ubuntu-latest, windows-latest, macos-latest]
+
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ matrix.dotnet-version }}
+
+    - name: 📦 Cache .NET packages
+      uses: actions/cache@v4
+      with:
+        path: ~/.nuget/packages
+        key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+        restore-keys: |
+          ${{ runner.os }}-nuget-
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+    - name: 🔨 Build solution
+      run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
+
+    - name: 🧪 Run unit tests
+      run: |
+        dotnet test ${{ env.SOLUTION_FILE }} \
+          --configuration Release \
+          --no-build \
+          --verbosity normal \
+          --logger trx \
+          --results-directory ${{ env.TEST_RESULTS_DIR }} \
+          --collect:"XPlat Code Coverage"
+
+    - name: 📋 Upload test artifacts
+      uses: actions/upload-artifact@v4
+      if: always()
+      with:
+        name: test-results-${{ matrix.os }}-${{ matrix.dotnet-version }}
+        path: ${{ env.TEST_RESULTS_DIR }}
+        retention-days: 7
+
+  # 📦 Package & Publish
+  package:
+    name: 📦 Package & Publish
+    runs-on: ubuntu-latest
+    needs: [quality-check, test]
+    timeout-minutes: 20
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 📦 Restore dependencies
+      run: dotnet restore ${{ env.SOLUTION_FILE }}
+
+    - name: 🏗️ Build solution
+      run: dotnet build ${{ env.SOLUTION_FILE }} --configuration Release --no-restore
+
+    - name: 📦 Pack NuGet packages
+      run: |
+        dotnet pack ${{ env.SOLUTION_FILE }} \
+          --configuration Release \
+          --no-build \
+          --output ${{ env.ARTIFACTS_DIR }} \
+          --include-symbols \
+          --include-source \
+          -p:PackageVersion=${{ github.ref_name || '1.0.0' }} \
+          -p:AssemblyVersion=${{ github.ref_name || '1.0.0' }} \
+          -p:FileVersion=${{ github.ref_name || '1.0.0' }}
+
+    - name: 📤 Upload packages
+      uses: actions/upload-artifact@v4
+      with:
+        name: nuget-packages
+        path: ${{ env.ARTIFACTS_DIR }}/*.nupkg
+        retention-days: 7
+
+    - name: 🏷️ Generate release notes
+      if: startsWith(github.ref, 'refs/tags/')
+      id: release_notes
+      run: |
+        echo "notes<<EOF" >> $GITHUB_OUTPUT
+        echo "## 🚀 NetThrottler ${{ github.ref_name }}" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### ✨ Features" >> $GITHUB_OUTPUT
+        echo "- Advanced rate limiting algorithms" >> $GITHUB_OUTPUT
+        echo "- ASP.NET Core middleware integration" >> $GITHUB_OUTPUT
+        echo "- Redis and SQL Server support" >> $GITHUB_OUTPUT
+        echo "" >> $GITHUB_OUTPUT
+        echo "### 📦 Packages" >> $GITHUB_OUTPUT
+        ls ${{ env.ARTIFACTS_DIR }}/*.nupkg | sed 's/.*\//- /' >> $GITHUB_OUTPUT
+        echo "EOF" >> $GITHUB_OUTPUT
+
+  # 🌐 Deploy to NuGet
+  deploy-nuget:
+    name: 🌐 Deploy to NuGet
+    runs-on: ubuntu-latest
+    needs: package
+    if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+    environment: production
+    timeout-minutes: 15
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 📥 Download packages
+      uses: actions/download-artifact@v4
+      with:
+        name: nuget-packages
+        path: ${{ env.ARTIFACTS_DIR }}
+
+    - name: 🔧 Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: 🌐 Publish to NuGet
+      run: |
+        for package in ${{ env.ARTIFACTS_DIR }}/*.nupkg; do
+          echo "📦 Publishing $package to NuGet..."
+          dotnet nuget push "$package" \
+            --api-key ${{ secrets.NUGET_API_KEY }} \
+            --source https://api.nuget.org/v3/index.json \
+            --skip-duplicate
+        done
+
+  # 🔍 Dependency Review
+  dependency-review:
+    name: 🔍 Dependency Review
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+
+    - name: 🔍 Dependency Review
+      uses: actions/dependency-review-action@v4
