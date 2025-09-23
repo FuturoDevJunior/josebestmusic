@@ -70,6 +70,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         dotnet-version: ['7.0.x', '8.0.x']
         os: [ubuntu-latest, windows-latest, macos-latest]
@@ -114,7 +115,7 @@ jobs:
         dotnet-version: ${{ matrix.dotnet-version }}
 
     - name: 📦 Cache .NET packages
-      uses: actions/cache@v3
+      uses: actions/cache@v4
       with:
         path: ~/.nuget/packages
         key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
@@ -156,7 +157,7 @@ jobs:
         fail-on-error: true
 
     - name: 📈 Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v4
       if: matrix.os == 'ubuntu-latest' && matrix.dotnet-version == '8.0.x'
       with:
         files: ${{ env.TEST_RESULTS_DIR }}/**/coverage.cobertura.xml
@@ -165,7 +166,7 @@ jobs:
         fail_ci_if_error: false
 
     - name: 📋 Upload test artifacts
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       if: always()
       with:
         name: test-results-${{ matrix.os }}-${{ matrix.dotnet-version }}
@@ -206,7 +207,7 @@ jobs:
           -p:FileVersion=${{ github.ref_name || '1.0.0' }}
 
     - name: 📤 Upload packages
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: nuget-packages
         path: ${{ env.ARTIFACTS_DIR }}/*.nupkg
@@ -241,7 +242,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: 📥 Download packages
-      uses: actions/download-artifact@v3
+      uses: actions/download-artifact@v4
       with:
         name: nuget-packages
         path: ${{ env.ARTIFACTS_DIR }}
@@ -263,12 +264,12 @@ jobs:
 
     - name: 🎉 Create GitHub Release
       if: startsWith(github.ref, 'refs/tags/')
-      uses: actions/create-release@v1
+      uses: softprops/action-gh-release@v2
       env:
         GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       with:
         tag_name: ${{ github.ref_name }}
-        release_name: NetThrottler ${{ github.ref_name }}
+        name: NetThrottler ${{ github.ref_name }}
         body: ${{ steps.release_notes.outputs.notes }}
         draft: false
         prerelease: false
@@ -304,7 +305,7 @@ jobs:
           -- --exporters Json --artifacts ${{ env.ARTIFACTS_DIR }}/benchmarks
 
     - name: 📊 Upload benchmark results
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: benchmark-results
         path: ${{ env.ARTIFACTS_DIR }}/benchmarks
@@ -320,7 +321,7 @@ jobs:
       uses: actions/checkout@v4
 
     - name: 🔍 Dependency Review
-      uses: actions/dependency-review-action@v3
+      uses: actions/dependency-review-action@v4
 
   # 🧹 Cleanup
   cleanup:

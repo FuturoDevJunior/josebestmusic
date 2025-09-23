@@ -46,7 +46,7 @@ public class ThrottlingResilienceStrategy
                 MaxRetryAttempts = retryCount,
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
-                BaseDelay = TimeSpan.FromSeconds(1),
+                Delay = TimeSpan.FromSeconds(1),
                 ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
                     .Handle<HttpRequestException>()
                     .HandleResult(r => !r.IsSuccessStatusCode),
@@ -93,7 +93,7 @@ public class ThrottlingResilienceStrategy
                 MaxRetryAttempts = retryCount,
                 BackoffType = DelayBackoffType.Exponential,
                 UseJitter = true,
-                BaseDelay = TimeSpan.FromSeconds(1),
+                Delay = TimeSpan.FromSeconds(1),
                 ShouldHandle = new PredicateBuilder<HttpResponseMessage>()
                     .Handle<HttpRequestException>()
                     .HandleResult(r => !r.IsSuccessStatusCode),

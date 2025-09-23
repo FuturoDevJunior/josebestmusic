@@ -40,7 +40,7 @@ export NUGET_API_KEY="sua_api_key_aqui"
 
 ```bash
 # Navegar para o diretório do projeto
-cd /Users/devferreirag/NetThrottler
+cd /Users/devferreirag/josebestmusic
 
 # Publicar cada pacote
 dotnet nuget push artifacts/NetThrottler.Core.1.0.0.nupkg \

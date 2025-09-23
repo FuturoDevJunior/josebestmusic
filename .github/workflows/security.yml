@@ -36,12 +36,12 @@ jobs:
         SNYK_TOKEN: ${{ secrets.SNYK_TOKEN }}
 
     - name: 🛡️ Run CodeQL Analysis
-      uses: github/codeql-action/init@v2
+      uses: github/codeql-action/init@v3
       with:
         languages: csharp
 
     - name: 🔍 Perform CodeQL Analysis
-      uses: github/codeql-action/analyze@v2
+      uses: github/codeql-action/analyze@v3
 
     - name: 🔐 Run Trivy vulnerability scanner
       uses: aquasecurity/trivy-action@master
@@ -52,7 +52,7 @@ jobs:
         output: 'trivy-results.sarif'
 
     - name: 📊 Upload Trivy scan results
-      uses: github/codeql-action/upload-sarif@v2
+      uses: github/codeql-action/upload-sarif@v3
       if: always()
       with:
         sarif_file: 'trivy-results.sarif'
@@ -74,7 +74,7 @@ jobs:
         echo "- ✅ Dependency Check: Completed" >> security-report.md
 
     - name: 📤 Upload security report
-      uses: actions/upload-artifact@v3
+      uses: actions/upload-artifact@v4
       with:
         name: security-report
         path: security-report.md
